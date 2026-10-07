@@ -1,0 +1,8 @@
+{
+  "name": "token-meter",
+  "version": "0.2.0",
+  "description": "Live token meter above the prompt, plus auto /compact once context passes 150k (waits for the current turn to finish)",
+  "author": { "name": "HeagBoKaT" },
+  "repository": "https://github.com/HeagBoKaT/claude-token",
+  "license": "MIT"
+}

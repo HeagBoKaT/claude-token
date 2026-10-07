@@ -1,0 +1,5 @@
+{
+  "name": "claude-token",
+  "owner": { "name": "HeagBoKaT" },
+  "plugins": [{ "name": "token-meter", "source": "./", "description": "Live token meter + auto-compact at 150k" }]
+}
