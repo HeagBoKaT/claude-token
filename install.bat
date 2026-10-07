@@ -19,10 +19,17 @@ if errorlevel 1 (
 
 for /f "delims=" %%v in ('claude --version 2^>nul') do echo   Claude Code: %%v
 echo.
+echo   Auto-compact needs a recent Claude Code build.
+choice /c YN /n /m "  Update Claude Code now? [Y/N] "
+if errorlevel 2 goto skipupdate
+call claude update
+:skipupdate
+echo.
 
 echo   [1/3] Adding marketplace HeagBoKaT/claude-token ...
 call claude plugin marketplace add HeagBoKaT/claude-token >nul 2>nul
 call claude plugin marketplace update claude-token
+call claude plugin uninstall token-meter@claude-token >nul 2>nul
 if errorlevel 1 (
   echo   [x] Could not add the marketplace. Check your internet connection.
   pause
