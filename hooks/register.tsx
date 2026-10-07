@@ -103,6 +103,10 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     await refresh($)
+    if (m.canCompact && m.context >= COMPACT_AT) {
+      set($, { isCompactPending: true })
+      $.clock.after(1_000, () => tryCompact($))
+    }
     return r
   })
 
@@ -147,56 +151,38 @@ export const register: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
 
     const ratio = Math.min(1, m.context / COMPACT_AT)
-    const isDesktop = e.surface !== 'terminal'
-    const cols = e.props.bodyColumns
-    // Proportional fonts on the desktop draw blocks wide: keep the bar short there.
-    const barWidth = isDesktop ? 12 : cols >= 100 ? 24 : cols >= 70 ? 16 : 10
-    const filled = Math.max(m.context > 0 ? 1 : 0, Math.round(ratio * barWidth))
     const color = tone(ratio)
-    const pct = Math.round(ratio * 100)
+    const dots = 10
+    const filled = Math.min(dots, Math.max(m.context > 0 ? 1 : 0, Math.round(ratio * dots)))
+    const isNarrow = e.surface === 'terminal' && e.props.bodyColumns < 60
 
-    const details = [
-      `↑ ${fmt(m.input)}`,
-      `↓ ${fmt(m.output)}`,
-      `⟲ ${fmt(m.cached)}`,
-      ...(m.window ? [`window ${fmt(m.window)}`] : []),
-      ...(m.usd !== null ? [`$${m.usd.toFixed(2)}`] : []),
-      ...(m.compactions ? [`compacted ×${m.compactions}`] : []),
-    ].join('  ·  ')
+    const usage = [
+      m.input ? `↑${fmt(m.input)}` : '',
+      m.output ? `↓${fmt(m.output)}` : '',
+      m.usd !== null ? `$${m.usd.toFixed(2)}` : '',
+    ].filter(Boolean).join('  ')
 
     const status = m.isCompacting
-      ? 'Compacting conversation…'
+      ? { text: 'compacting…', color: 'claude' }
       : m.isCompactPending
-        ? 'Auto-compact queued · runs when this turn ends'
+        ? { text: 'compact after this turn', color: 'warning' }
         : !m.canCompact
-          ? 'Auto-compact off · run `claude update`'
+          ? { text: 'auto-compact off', color: 'inactive' }
           : null
 
     return (
-      <Box flexDirection="column" paddingX={1}>
-        <Box flexDirection="row" flexWrap="nowrap">
-          <Box flexShrink={0}>
-            <Text color="claude">✻ </Text>
-            <Text bold>Context </Text>
-          </Box>
-          <Box flexShrink={0}>
-            <Text color={color}>{'█'.repeat(filled)}</Text>
-            <Text color="inactive" dimColor>{'█'.repeat(barWidth - filled)}</Text>
-          </Box>
-          <Box flexShrink={0}>
-            <Text bold color={color}>{` ${fmt(m.context)}`}</Text>
-            <Text color="subtle">{` / ${fmt(COMPACT_AT)} · ${pct}%`}</Text>
-          </Box>
-        </Box>
-        <Box flexDirection="row" flexWrap="nowrap" paddingLeft={2}>
-          <Text color="subtle" wrap="truncate-end">
-            {status ? '' : '⎿ '}
-            {status ? '' : details}
-          </Text>
-          {status && (
-            <Text color={m.isCompacting ? 'claude' : 'warning'} wrap="truncate-end">{`⎿ ${status}`}</Text>
-          )}
-        </Box>
+      <Box flexDirection="row" flexWrap="nowrap" paddingX={1}>
+        <Text color="claude">{'✻ '}</Text>
+        <Text color={color}>{'●'.repeat(filled)}</Text>
+        <Text color="inactive">{'●'.repeat(dots - filled)}</Text>
+        <Text>{'  '}</Text>
+        <Text bold={ratio >= 0.7} color={ratio >= 0.7 ? color : 'text'}>{fmt(m.context)}</Text>
+        <Text color="inactive">{` / ${fmt(COMPACT_AT)}`}</Text>
+        {status ? (
+          <Text color={status.color} wrap="truncate-end">{`  ·  ${status.text}`}</Text>
+        ) : (
+          !isNarrow && usage !== '' && <Text color="inactive" wrap="truncate-end">{`  ·  ${usage}`}</Text>
+        )}
       </Box>
     )
   })
